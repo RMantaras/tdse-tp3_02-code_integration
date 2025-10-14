@@ -1,0 +1,55 @@
+Favor de analizar y explicar (en español), el funcionamiento del código fuente contenido en los archivos adjuntos: 
+board.h, dwt.h y systick.c.
+
+
+RESPUESTA:
+Claro, aquí tienes un análisis detallado en español del funcionamiento del código fuente en los archivos que adjuntaste.
+
+board.h - Abstracción del Hardware
+Este archivo de cabecera (.h) tiene como objetivo principal abstraer las definiciones de hardware específicas de la placa, permitiendo que el mismo código de la aplicación se pueda usar en diferentes modelos de microcontroladores o placas de desarrollo con cambios mínimos. A esto se le conoce como portabilidad. 🤓
+
+Selección de la Placa: La directiva #define BOARD (NUCLEO_F103RC) establece cuál es la placa de desarrollo activa. Si quisieras compilar el mismo proyecto para otra placa, como una NUCLEO_F446RE, solo necesitarías cambiar esta línea.
+
+Definiciones Condicionales: El archivo utiliza directivas de preprocesador (#if, #endif) para definir alias (nombres alternativos) para los pines y sus estados, dependiendo de la placa seleccionada.
+
+Por ejemplo, para la placa NUCLEO_F103RC, define LED_A_PIN como LD2_Pin y BTN_A_PIN como B1_Pin. Estos nombres (LD2_Pin, B1_Pin) son los que genera STM32CubeMX y están definidos en otros archivos del proyecto.
+
+También define los estados lógicos. LED_A_ON se define como GPIO_PIN_SET, lo que significa que para encender el LED hay que poner el pin en estado alto.
+
+En resumen, este archivo actúa como un traductor entre los nombres genéricos que usas en tu aplicación (como LED_A) y los nombres específicos del hardware de la placa que estás usando.
+
+dwt.h - Medición de Tiempo de Alta Precisión
+Este archivo proporciona un conjunto de herramientas para medir el tiempo de ejecución del código con una precisión de nanosegundos, utilizando un periférico del procesador ARM Cortex-M llamado DWT (Data Watchpoint and Trace). ⏱️
+
+El DWT incluye un contador de 32 bits (CYCCNT) que se incrementa con cada ciclo de reloj del CPU. Esto es mucho más preciso que usar temporizadores de software.
+
+cycle_counter_init(void): Esta función habilita el periférico DWT y pone a cero su contador de ciclos, dejándolo listo para empezar a medir. Se debe llamar una vez al inicio del programa.
+
+cycle_counter_reset(void): Pone el contador de ciclos (DWT->CYCCNT) a 0. Se usa justo antes de la sección de código que se quiere medir.
+
+cycle_counter_get(void): Devuelve el número de ciclos de reloj que han transcurrido desde la última vez que se reseteó el contador.
+
+cycle_counter_get_time_us(void): Es la función más útil. Toma el número de ciclos de reloj del contador y lo convierte a microsegundos (µs). Para ello, divide el número de ciclos por la frecuencia del sistema en MHz (ej. SystemCoreClock / 1000000).
+
+El ejemplo comentado al final del archivo ilustra perfectamente su uso: reseteas el contador, ejecutas el código a medir y luego obtienes el tiempo transcurrido en microsegundos. Es la herramienta que se usa en app.c para calcular el WCET.
+
+systick.c - Retardos Bloqueantes (Busy-Wait)
+Este archivo implementa una única función, systick_delay_us, que crea un retardo bloqueante o "busy-wait" por una cantidad específica de microsegundos. ⏳
+
+Un retardo "bloqueante" significa que el CPU se queda "atrapado" en un bucle, sin hacer nada más, hasta que el tiempo especificado haya transcurrido. Esto es útil para retardos muy cortos y precisos donde no importa detener todo el sistema.
+
+Funcionamiento de systick_delay_us(uint32_t delay_us):
+
+Calcula cuántos "ticks" o ciclos del SysTick corresponden al delay_us deseado. Lo hace multiplicando los microsegundos por la frecuencia del reloj del sistema en MHz.
+
+Lee el valor inicial del contador SysTick (que es un contador que siempre está corriendo hacia abajo).
+
+Entra en un bucle while(1).
+
+Dentro del bucle, continuamente lee el valor actual del SysTick y calcula cuántos ticks han pasado desde el inicio.
+
+La lógica es inteligente y maneja correctamente el "desbordamiento" (cuando el contador llega a 0 y se recarga con su valor máximo) para que el cálculo del tiempo transcurrido sea siempre correcto.
+
+Cuando el número de ticks transcurridos es igual o mayor al objetivo, el bucle termina y la función retorna.
+
+En conclusión, este archivo proporciona una forma sencilla de generar retardos precisos en microsegundos, a costa de "congelar" la ejecución del programa durante ese tiempo.

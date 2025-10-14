@@ -1,0 +1,131 @@
+Favor de analizar y explicar (en español), el funcionamiento del código fuente contenido en los archivos adjuntos: 
+app.c, task_test.c, logger.c y logger.h. Favor de indicar el impacto de usar LOGGER_INFO() en la evolución de las 
+variables g_app_runtime_us, task_dta_list[index].WCET y g_task_test_tick_cnt (indicar unidad de medida) al 
+ejecutar dicho código fuente desde su inicio (app_init() de app.c) y en sucesivas ejecuciones del loop principal de la 
+aplicación ((app_update() de app.c). 
+
+
+RESPUESTA:
+Claro, aquí tienes un análisis detallado del funcionamiento del código y el impacto del LOGGER_INFO() en las variables de temporización.
+
+Análisis del Funcionamiento del Código Fuente
+El conjunto de archivos describe un sistema embebido simple con una arquitectura "bare metal" (sin sistema operativo) que ejecuta tareas de forma cooperativa, guiada por eventos de tiempo generados por una interrupción.
+
+logger.h y logger.c - El Sistema de Registro (Logging)
+Estos archivos implementan una utilidad para enviar mensajes de texto desde el microcontrolador a un computador, principalmente para depuración.
+
+Funcionalidad clave:
+
+La macro LOGGER_INFO(...) es la interfaz principal. Formatea un mensaje con un prefijo [info] y un salto de línea.
+
+Utiliza snprintf para crear la cadena de texto a enviar, lo que consume tiempo de CPU y memoria RAM.
+
+La función logger_log_print_ se encarga del envío físico. En este caso, está configurada para usar "semihosting" (printf), una técnica de depuración que envía el texto a través del programador/depurador (como un ST-Link) a una consola en el PC.
+
+Críticamente, la macro LOGGER_LOG deshabilita las interrupciones (__asm("CPSID i")) antes de preparar y enviar el mensaje, y las vuelve a habilitar al final (__asm("CPSIE i")). Esto se hace para evitar que una interrupción (como la del SysTick) ocurra a mitad de una operación de logging, lo que podría corromper los datos del mensaje.
+
+app.c - El Planificador de Tareas (Scheduler)
+Este es el núcleo del sistema. No es un sistema operativo, sino un simple planificador que ejecuta tareas en un bucle infinito basándose en un "tick" o pulso de tiempo.
+
+app_init(void):
+
+Se ejecuta una sola vez al arrancar.
+
+Inicializa variables globales, incluyendo los contadores y el medidor de ciclos de CPU (cycle_counter_init).
+
+Utiliza LOGGER_INFO para imprimir mensajes de bienvenida y estado inicial.
+
+Recorre una lista de tareas (task_cfg_list) y llama a la función de inicialización de cada una (en este caso, solo task_test_init).
+
+Inicializa el WCET de cada tarea a 0.
+
+app_update(void):
+
+Se llama continuamente desde el while(1) en main.c.
+
+Comprueba la variable g_app_tick_cnt. Si es mayor que cero, significa que la interrupción del SysTick ha ocurrido y es hora de ejecutar las tareas.
+
+Dentro de un bucle while, procesa todos los ticks pendientes. Por cada tick:
+
+Mide el tiempo de ejecución de la función update de cada tarea (ej. task_test_update) en microsegundos.
+
+Acumula este tiempo en g_app_runtime_us.
+
+Compara el tiempo de ejecución medido con el WCET (Peor Tiempo de Ejecución) guardado para esa tarea. Si el tiempo actual es mayor, actualiza el WCET.
+
+HAL_SYSTICK_Callback(void):
+
+Esta es una función de callback que es llamada por la rutina de interrupción del SysTick cada 1 milisegundo.
+
+Incrementa g_app_tick_cnt y g_task_test_tick_cnt, señalando al bucle principal que ha transcurrido tiempo y hay trabajo por hacer.
+
+task_test.c - La Tarea de Aplicación
+Este archivo define la única tarea que realiza el trabajo real de la aplicación.
+
+task_test_init(void *parameters):
+
+Se ejecuta una vez desde app_init.
+
+Configura e inicializa una pantalla LCD, mostrando un mensaje de bienvenida estático.
+
+Inicializa un contador interno (task_test_dta.tick) a 1000 (milisegundos).
+
+task_test_update(void *parameters):
+
+Se ejecuta cada vez que app_update procesa un tick del sistema.
+
+Decrementa la variable g_task_test_tick_cnt para consumir el "tick" que le da derecho a ejecutarse.
+
+Llama a task_test_statechart() para ejecutar la lógica de la tarea.
+
+task_test_statechart(void):
+
+Implementa una máquina de estados basada en tiempo.
+
+Decrementa el contador p_task_test_dta->tick en cada llamada (cada 1 ms).
+
+Cuando el contador llega a 0, significa que ha pasado 1 segundo (1000 ms). En ese momento:
+
+Resetea el contador a 1000.
+
+Calcula el número de segundos transcurridos (g_task_test_cnt/1000ul).
+
+Actualiza la pantalla LCD con este nuevo valor.
+
+Impacto de LOGGER_INFO() en las Variables de Temporización
+Es fundamental entender cuándo se llama a LOGGER_INFO(). En el código proporcionado, solo se usa durante la fase de inicialización (app_init y task_test_init). No se llama dentro del bucle principal de la aplicación (app_update o task_test_update).
+
+1. Ejecución desde el Inicio (app_init)
+Durante la inicialización, las llamadas a LOGGER_INFO() tienen los siguientes efectos:
+
+Retraso en el Arranque: Cada llamada a LOGGER_INFO detiene la ejecución normal para formatear y enviar el mensaje. Esto introduce un retraso significativo (posiblemente de varios milisegundos por llamada) antes de que el bucle principal (app_update) comience a ejecutarse.
+
+No hay impacto en las variables de medición:
+
+g_app_runtime_us y task_dta_list[index].WCET: Estas variables no se miden durante app_init. Las mediciones de tiempo solo comienzan dentro de app_update. Por lo tanto, el logger en app_init no afecta sus valores iniciales, que son 0.
+
+g_task_test_tick_cnt: Esta variable se inicializa en 0 después de que se hayan realizado todas las llamadas al logger en app_init. Por lo tanto, no hay impacto.
+
+2. Ejecuciones Sucesivas del Loop Principal (app_update)
+Dado que LOGGER_INFO() no se llama dentro de app_update o task_test_update, su impacto directo en la evolución de las variables durante el funcionamiento normal del bucle es NULO.
+
+3. Análisis Hipotético: ¿Qué pasaría si se usara LOGGER_INFO() en task_test_update?
+Si se modificara el código para añadir una llamada a LOGGER_INFO() dentro de task_test_update, el impacto sería severo y se manifestaría de la siguiente manera:
+
+g_app_runtime_us (unidad: microsegundos)
+
+Esta variable aumentaría drásticamente en cada ciclo en que se llamara al logger. La ejecución de snprintf y el envío de datos por semihosting son operaciones lentas. El tiempo de ejecución de la tarea pasaría de unos pocos microsegundos a varios milisegundos. g_app_runtime_us reflejaría directamente este enorme incremento.
+
+task_dta_list[index].WCET (unidad: microsegundos)
+
+En la primera ejecución de la tarea que incluyera la llamada a LOGGER_INFO(), el tiempo medido sería muy alto. Este valor se almacenaría inmediatamente en WCET.
+
+La variable WCET se establecería en un valor muy alto (milisegundos) y probablemente no cambiaría más, ya que la operación de logging se convertiría en la ruta de ejecución más lenta del sistema.
+
+g_task_test_tick_cnt (unidad: ticks o milisegundos)
+
+Este es el impacto más crítico. La macro LOGGER_INFO deshabilita las interrupciones. Si la operación de logging tarda más de 1 ms en completarse, la interrupción del SysTick que debería ocurrir durante ese tiempo quedará "pendiente".
+
+Jitter (Variación del retardo): El sistema no perdería el tick, pero lo procesaría con retraso. En lugar de procesar un tick cada milisegundo, podría procesar el tick N ahora, y el tick N+1 varios milisegundos después.
+
+Acumulación de Ticks: Si el logger tarda, por ejemplo, 3 ms, durante ese tiempo se habrán generado 3 ticks. Cuando las interrupciones se habiliten de nuevo, g_task_test_tick_cnt podría valer 3. El bucle while en task_test_update tendría que ejecutarse 3 veces seguidas para "ponerse al día", rompiendo por completo la predictibilidad y el comportamiento en tiempo real del sistema.
