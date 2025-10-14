@@ -80,6 +80,8 @@
 
 #define DISPLAY_DEL_37US	37ul
 #define DISPLAY_DEL_50MS	50ul
+#define DISPLAY_DEL_05MS	05ul
+#define DISPLAY_DEL_01MS	05ul
 #define DISPLAY_DEL_01US	01ul
 
 //=====[Declaration of private data types]=====================================
@@ -122,17 +124,17 @@ void displayInit( displayConnection_t connection )
     displayCodeWrite( DISPLAY_RS_INSTRUCTION,
                       DISPLAY_IR_FUNCTION_SET |
                       DISPLAY_IR_FUNCTION_SET_8BITS );
-    systick_delay_us(5*DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_05MS);
 
     displayCodeWrite( DISPLAY_RS_INSTRUCTION,
                       DISPLAY_IR_FUNCTION_SET |
                       DISPLAY_IR_FUNCTION_SET_8BITS );
-    systick_delay_us(DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_01MS);
 
     displayCodeWrite( DISPLAY_RS_INSTRUCTION,
                       DISPLAY_IR_FUNCTION_SET |
                       DISPLAY_IR_FUNCTION_SET_8BITS );
-    systick_delay_us(DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_01MS);
 
     switch( display.connection ) {
         case DISPLAY_CONNECTION_GPIO_8BITS:
@@ -141,14 +143,14 @@ void displayInit( displayConnection_t connection )
                               DISPLAY_IR_FUNCTION_SET_8BITS |
                               DISPLAY_IR_FUNCTION_SET_2LINES |
                               DISPLAY_IR_FUNCTION_SET_5x8DOTS );
-            systick_delay_us(DISPLAY_DEL_37US);
+            HAL_Delay(DISPLAY_DEL_01MS);
         break;
 
         case DISPLAY_CONNECTION_GPIO_4BITS:
             displayCodeWrite( DISPLAY_RS_INSTRUCTION,
                               DISPLAY_IR_FUNCTION_SET |
                               DISPLAY_IR_FUNCTION_SET_4BITS );
-            systick_delay_us(DISPLAY_DEL_37US);
+            HAL_Delay(DISPLAY_DEL_01MS);
 
             initial8BitCommunicationIsCompleted = true;
 
@@ -157,7 +159,7 @@ void displayInit( displayConnection_t connection )
                               DISPLAY_IR_FUNCTION_SET_4BITS |
                               DISPLAY_IR_FUNCTION_SET_2LINES |
                               DISPLAY_IR_FUNCTION_SET_5x8DOTS );
-            systick_delay_us(DISPLAY_DEL_37US);
+            HAL_Delay(DISPLAY_DEL_01MS);
         break;
     }
 
@@ -166,24 +168,24 @@ void displayInit( displayConnection_t connection )
                       DISPLAY_IR_DISPLAY_CONTROL_DISPLAY_OFF |
                       DISPLAY_IR_DISPLAY_CONTROL_CURSOR_OFF |
                       DISPLAY_IR_DISPLAY_CONTROL_BLINK_OFF );
-    systick_delay_us(DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_01MS);
 
     displayCodeWrite( DISPLAY_RS_INSTRUCTION,
                       DISPLAY_IR_CLEAR_DISPLAY );
-    systick_delay_us(DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_01MS);
 
     displayCodeWrite( DISPLAY_RS_INSTRUCTION,
                       DISPLAY_IR_ENTRY_MODE_SET |
                       DISPLAY_IR_ENTRY_MODE_SET_INCREMENT |
                       DISPLAY_IR_ENTRY_MODE_SET_NO_SHIFT );
-    systick_delay_us(DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_01MS);
 
     displayCodeWrite( DISPLAY_RS_INSTRUCTION,
                       DISPLAY_IR_DISPLAY_CONTROL |
                       DISPLAY_IR_DISPLAY_CONTROL_DISPLAY_ON |
                       DISPLAY_IR_DISPLAY_CONTROL_CURSOR_OFF |
                       DISPLAY_IR_DISPLAY_CONTROL_BLINK_OFF );
-    systick_delay_us(DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_01MS);
 }
 
 void displayCharPositionWrite( uint8_t charPositionX, uint8_t charPositionY )
@@ -194,7 +196,7 @@ void displayCharPositionWrite( uint8_t charPositionX, uint8_t charPositionY )
                               DISPLAY_IR_SET_DDRAM_ADDR |
                               ( DISPLAY_20x4_LINE1_FIRST_CHARACTER_ADDRESS +
                                 charPositionX ) );
-            systick_delay_us(DISPLAY_DEL_37US);
+            HAL_Delay(DISPLAY_DEL_01MS);
         break;
 
         case 1:
@@ -202,7 +204,7 @@ void displayCharPositionWrite( uint8_t charPositionX, uint8_t charPositionY )
                               DISPLAY_IR_SET_DDRAM_ADDR |
                               ( DISPLAY_20x4_LINE2_FIRST_CHARACTER_ADDRESS +
                                 charPositionX ) );
-            systick_delay_us(DISPLAY_DEL_37US);
+            HAL_Delay(DISPLAY_DEL_01MS);
         break;
 
         case 2:
@@ -210,7 +212,7 @@ void displayCharPositionWrite( uint8_t charPositionX, uint8_t charPositionY )
                               DISPLAY_IR_SET_DDRAM_ADDR |
                               ( DISPLAY_20x4_LINE3_FIRST_CHARACTER_ADDRESS +
                                 charPositionX ) );
-            systick_delay_us(DISPLAY_DEL_37US);
+            HAL_Delay(DISPLAY_DEL_01MS);
         break;
 
         case 3:
@@ -218,7 +220,7 @@ void displayCharPositionWrite( uint8_t charPositionX, uint8_t charPositionY )
                               DISPLAY_IR_SET_DDRAM_ADDR |
                               ( DISPLAY_20x4_LINE4_FIRST_CHARACTER_ADDRESS +
                                 charPositionX ) );
-            systick_delay_us(DISPLAY_DEL_37US);
+            HAL_Delay(DISPLAY_DEL_01MS);
         break;
     }
 }
@@ -296,9 +298,9 @@ static void displayDataBusWrite( uint8_t dataBus )
         case DISPLAY_CONNECTION_GPIO_4BITS:
             if ( initial8BitCommunicationIsCompleted == true) {
                 displayPinWrite( DISPLAY_PIN_EN, ON );
-                systick_delay_us(DISPLAY_DEL_37US);
+                HAL_Delay(DISPLAY_DEL_01MS);
                 displayPinWrite( DISPLAY_PIN_EN, OFF );
-                systick_delay_us(DISPLAY_DEL_37US);
+                HAL_Delay(DISPLAY_DEL_01MS);
                 displayPinWrite( DISPLAY_PIN_D7, dataBus & 0b00001000 );
                 displayPinWrite( DISPLAY_PIN_D6, dataBus & 0b00000100 );
                 displayPinWrite( DISPLAY_PIN_D5, dataBus & 0b00000010 );
@@ -308,7 +310,7 @@ static void displayDataBusWrite( uint8_t dataBus )
 
     }
     displayPinWrite( DISPLAY_PIN_EN, ON );
-    systick_delay_us(DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_01MS);
     displayPinWrite( DISPLAY_PIN_EN, OFF );
-    systick_delay_us(DISPLAY_DEL_37US);
+    HAL_Delay(DISPLAY_DEL_01MS);
 }
